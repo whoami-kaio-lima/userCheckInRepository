@@ -1,0 +1,364 @@
+<%- include('../partials/header.ejs') %>
+    <%- include('../partials/navbaruser.ejs') %>
+
+    <body>
+        <div class="container">
+            <hr>
+            <div class="card">
+                <div class="card-header" style="display:flex;gap:20px;">
+                    <img src="/imgUsers/image-<%= user.id %>.jpg" class="img-thumbnail" alt="..."
+                        style="width:200px;height:200px;">
+                    <div>
+                        <div style="display:flex;align-items:center; width: 1050px; justify-content: space-between; padding-right: 10px;">
+                            <% if (user.name && user.surname) { %>
+                                <h1><%= user.name %> <%= user.surname %></h1>
+                            <% } %>
+                            <% if (user.shift) { %>
+                                <h3>Turno: <%= user.shift %></h3>
+                            <% } %>
+                        </div>
+                        <% if (user.course) { %>
+                            <h4>Curso: <%= user.course %></h4>
+                        <% } %>
+                        <% if (user.prohibited && user.exit != 'undefined/undefined/') { %>
+                            <h4>Contrato: Entrada: <%= user.prohibited %> | Saída: <%= user.exit %></h4>
+                        <% } %>
+                        <% if (user.institution) { %>
+                            <h4>Instituição: <%= user.institution %></h4>
+                        <% } %>
+                        <div style="width: 100%; gap: 10px; display: flex; align-items: center;">
+                            <h4>Horário:</h4>
+                            <h4 id="modelHours"></h4>
+                        </div>
+                        <h4 class="entrada"></h4>
+                        <h4 class="saida"></h4>
+                        <button class="btn btn-primary" id="entradaButton">Entrada</button>
+                        <button class="btn btn-primary" id="saidaButton" disabled>Saída</button>
+                        <form id="timeForm" method="POST" action="/user/save/time" style="display:inline;">
+                            <input type="hidden" id="entradaTime" name="entradaTime_<%= user.id %>">
+                            <input type="hidden" id="saidaTime" name="saidaTime_<%= user.id %>">
+                        </form>
+                    </div>
+                </div>
+                <div class="card-body">
+                        <hr>
+                        <form method="post" action="/user/<%= user.name.toLowerCase() %>/filter">
+                            <h5>FILTRO DE DIAS</h5>
+                            <br />
+                            <div style="display: flex; gap: 20px;">
+                                <input class="form-control" id="date" type="date" name="date"
+                                    style="width: 100%; display: block; padding: 10px;" />
+                                <button class="btn btn-primary" type="submit">Filtrar</button>
+                            </div>
+                        </form>
+                        <br />
+                        <hr>
+                        <h5>HISTÓRICO:</h5>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Nome do Usuário</th>
+                                    <th scope="col">Data</th>
+                                    <th scope="col">Entrada</th>
+                                    <th scope="col">Saída</th>
+                                    <th scope="col">Solicitar Reajuste</th>
+                                    <th scope="col">Solicitação Negada</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% hours.forEach(hour => { %>
+                                    <tr>
+                                        <th scope="row">
+                                            <%= hour.user.name %> <%= hour.user.surname %>
+                                        </th>
+                                        <td>
+                                            <%= hour.formattedDate %>
+                                        </td>
+                                        <td>
+                                            <%= hour.prohibited %>
+                                        </td>
+                                        <td>
+                                            <%= hour.exit %>
+                                        </td>
+                                        <td>
+                                            <% if (hour.denied === false) { %> <!-- Verifica se a solicitação não foi negada -->
+                                                <a href="/user/<%= hour.user.name.toLowerCase() %>/justify/<%= hour.id %>" class="btn btn-success">Justificar</a>
+                                                <% if (hour.request) { %>
+                                                    <button class="btn btn-warning request-button" data-id="<%= hour.id %>" disabled>Solicitado</button>
+                                                <% } else { %>
+                                                    <button class="btn btn-warning request-button" data-id="<%= hour.id %>">Solicitar</button>
+                                                <% } %>
+                                            <% } else { %> <!-- Caso a solicitação seja negada -->
+                                                <span>Solicitação Negada</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (hour.denied !== false) { %> <!-- Verifica se a solicitação foi negada -->
+                                                <a href="/user/<%= user.name.toLowerCase() %>/justify/denied/<%= hour.id %>" target="_blank" class="btn btn-danger">Ver Justificativa</a>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                        
+                        
+                    </div>
+                </div>
+            </div>
+        </body>
+
+        <%- include('../partials/footer.ejs') %>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function () {
+                    const requestButtons = document.querySelectorAll(".request-button");
+
+                    requestButtons.forEach(button => {
+                        button.addEventListener("click", function () {
+                            const hourId = this.getAttribute("data-id");
+
+                            fetch('/user/hours/request', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ hourId: hourId })
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert("SOLICITAÇÃO ABERTA COM SUCESSO!");
+                                        // Change button text and style when request is made
+                                        this.textContent = "Solicitado";
+                                        this.classList.remove("btn-warning");
+                                        this.classList.add("btn-warning");
+                                        this.disabled = true;
+                                    } else {
+                                        alert("Failed to update request");
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                });
+                        });
+                    });
+                });
+
+
+                const h1 = document.querySelector("#modelHours"),
+                    entradaElement = document.querySelector(".entrada"),
+                    saidaElement = document.querySelector(".saida"),
+                    entradaButton = document.getElementById("entradaButton"),
+                    saidaButton = document.getElementById("saidaButton"),
+                    userId = "<%= user.id %>";
+                // Seleciona todos os elementos com o id "reajuste"
+                const reajustes = document.querySelectorAll("#reajuste");
+
+                // Obtém os valores armazenados no localStorage ou inicializa um array vazio
+                const storedReajustes = JSON.parse(localStorage.getItem(`reajuste_${userId}`)) || [];
+
+                // Adiciona os valores do localStorage ao array de dados
+                const dadosreajuste = [...storedReajustes];
+
+                // Marca em verde os elementos cujos valores estão no localStorage
+                reajustes.forEach((reajuste) => {
+                    const parent = reajuste.parentElement;
+                    if (dadosreajuste.includes(reajuste.value)) {
+                        parent.style.backgroundColor = 'green';
+                    }
+
+                    // Adiciona o event listener para marcar os elementos clicados e armazenar no localStorage
+                    reajuste.addEventListener("click", (e) => {
+                        const valor = e.target.value;
+                        const parent = e.target.parentElement;
+                        console.log(`Elemento clicado: ${valor}`);
+
+                        // Verifica se o valor já está no array
+                        const valorIndex = dadosreajuste.indexOf(valor);
+                        if (valorIndex === -1) {
+                            // Se não estiver no array, adiciona
+                            dadosreajuste.push(valor);
+                            localStorage.setItem(`reajuste_${userId}`, JSON.stringify(dadosreajuste));
+
+                            // Marca o elemento pai em verde
+                            parent.style.backgroundColor = 'green';
+                        } else {
+                            // Se já estiver no array, remove
+                            dadosreajuste.splice(valorIndex, 1);
+                            localStorage.setItem(`reajuste_${userId}`, JSON.stringify(dadosreajuste));
+
+                            // Volta a cor de fundo do elemento pai ao padrão (ou transparente)
+                            parent.style.backgroundColor = '';
+                        }
+                    });
+                });
+
+
+
+                function getCurrentTime() {
+                    const date = new Date(),
+                        hours = date.getHours(),
+                        minutes = date.getMinutes();
+
+                    const formattedHours = hours < 10 ? `0${hours}` : hours;
+                    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+                    return `${formattedHours}:${formattedMinutes}`;
+                }
+
+                function updateClock() {
+                    const currentTime = getCurrentTime();
+                    h1.innerText = currentTime;
+                }
+
+                entradaButton.addEventListener("click", function () {
+                    const currentTime = getCurrentTime();
+                    document.getElementById("entradaTime").value = currentTime;
+                    localStorage.setItem(`entrada_${userId}`, currentTime);
+
+                    const modal = createModal("Entrada registrada");
+                    modal.style.display = "block";
+
+                    const okButton = modal.querySelector("button");
+                    okButton.addEventListener("click", function () {
+                        modal.style.display = "none";
+                        entradaElement.textContent = "Entrada: " + localStorage.getItem(`entrada_${userId}`);
+                        saidaButton.disabled = false;
+                    });
+                });
+
+                saidaButton.addEventListener("click", function () {
+                    const currentTime = getCurrentTime();
+                    document.getElementById("saidaTime").value = currentTime;
+                    localStorage.setItem(`saida_${userId}`, currentTime);
+                    saidaElement.textContent = "Saída: " + localStorage.getItem(`saida_${userId}`);
+
+                    const modal = createModal("Saída registrada");
+                    modal.style.display = "block";
+
+                    const okButton = modal.querySelector("button");
+                    okButton.addEventListener("click", function () {
+                        modal.style.display = "none";
+                        // Envia os valores para o servidor
+                        let entrada = localStorage.getItem(`entrada_${userId}`)
+                        let saida = localStorage.getItem(`saida_${userId}`)
+                        sendTimeDataToServer(entrada, saida);
+                        setTimeout(() => {
+                            localStorage.removeItem(`entrada_${userId}`);
+                            localStorage.removeItem(`saida_${userId}`);
+                            window.location.href = '/logout';
+                        }, 1000);
+                    });
+                });
+
+                function createModal(message) {
+                    const modal = document.createElement("div");
+                    modal.classList.add("modal");
+
+                    const modalContent = document.createElement("div");
+                    modalContent.classList.add("modal-content");
+
+                    const messageElement = document.createElement("p");
+                    messageElement.textContent = message;
+
+                    const okButton = document.createElement("button");
+                    okButton.textContent = "OK";
+
+                    modalContent.appendChild(messageElement);
+                    modalContent.appendChild(okButton);
+                    modal.appendChild(modalContent);
+                    document.body.appendChild(modal);
+
+                    return modal;
+                }
+
+                function sendTimeDataToServer(entradaTime, saidaTime) {
+                    fetch('/user/save/time', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            entradaTime: entradaTime,
+                            saidaTime: saidaTime,
+                            userId: userId
+                        })
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Erro ao salvar horário');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // Aqui você pode lidar com a resposta do servidor, se necessário
+                        })
+                        .catch(error => {
+                            console.error('Erro:', error);
+                        });
+                }
+
+                // Check for localStorage entry on page load
+                document.addEventListener("DOMContentLoaded", function () {
+                    const userId = "<%= user.id %>";
+                    const entradaKey = `entrada_${userId}`;
+                    const saidaKey = `saida_${userId}`;
+
+                    const entrada = localStorage.getItem(entradaKey);
+                    const saida = localStorage.getItem(saidaKey);
+
+                    if (entrada) {
+                        const entradaTime = document.getElementById("entradaTime");
+                        entradaTime.value = entrada;
+                        const entradaElement = document.querySelector(".entrada");
+                        entradaElement.textContent = "Entrada: " + entrada;
+                        saidaButton.disabled = false;
+                    }
+
+                    if (saida) {
+                        const saidaElement = document.querySelector(".saida");
+                        saidaElement.textContent = "Saída: " + saida;
+                    }
+                });
+
+                setInterval(updateClock, 1000);
+            </script>
+            <style>
+                .modal {
+                    display: none;
+                    position: fixed;
+                    z-index: 1;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow: auto;
+                    background-color: rgba(0, 0, 0, .4)
+                }
+
+                .modal-content {
+                    background-color: #fefefe;
+                    margin: 15% auto;
+                    padding: 20px;
+                    border: 1px solid #888;
+                    width: 30%
+                }
+
+                .modal p {
+                    text-align: center;
+                    font-size: 18px;
+                    margin-bottom: 20px
+                }
+
+                .modal button {
+                    display: block;
+                    margin: 0 auto;
+                    padding: 10px 20px;
+                    background-color: #4caf50;
+                    color: #fff;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer
+                }
+            </style>
